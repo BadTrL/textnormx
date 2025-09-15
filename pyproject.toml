@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "textnormx"
+version = "0.1.0"
+description = "Normalize/clean text from PDF OCR/extraction (PUA bullets, quotes, dashes, NBSP, control chars)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Vous", email = "you@example.com" }]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.urls]
+Homepage = "https://example.com"
+
+[project.scripts]
+textnormx = "textnormx.normalize:main"
