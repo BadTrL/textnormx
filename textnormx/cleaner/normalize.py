@@ -33,7 +33,8 @@ RE_TOC_LINE = re.compile(r"\.{3,}\s*\d+\s*$")
 RE_LIST_HEAD = re.compile(r"^\s*(?:•|\*|·|∙|‧|■|▪|●|◦|—|-)\s*")
 
 # Extractor artefacts like: glyph<...>
-GLYPH_RUN_RE = re.compile(r"glyph<[^>]*>")
+GLYPH_RUN_RE = re.compile(r"glyph<[^>]*>|glyph<\S*", re.IGNORECASE)
+RE_GLYPH_ESCAPED = re.compile(r"glyph&lt;[^&]*&gt;", re.IGNORECASE)  # escaped glyph runs (HTML-escaped)
 
 # Heuristic trigger: ALL-CAPS words (≥4 letters)
 CAPS_WORD_RE = re.compile(r"\b[A-Z]{4,}\b")
@@ -43,6 +44,29 @@ RE_ZERO_WIDTH = re.compile(r"[\u200B-\u200D\u2060]")  # ZWSP/ZWNJ/ZWJ/WORD JOINE
 RE_SOFT_HYPHEN = re.compile(r"\u00AD")
 RE_BOM = re.compile(r"\ufeff")
 RE_VARIATION_SELECTORS = re.compile(r"[\uFE00-\uFE0F]")
+RE_HTML_ENTITY = re.compile(r"&[a-zA-Z#0-9]+;")                     # generic HTML entities
+
+# --- Heuristic detection of polluted text ------------------------------------
+
+def _looks_extraction_polluted(s: str) -> bool:
+    """
+    Heuristic detector for extractor pollution:
+    - 'glyph<...>' raw or HTML-escaped
+    - heavy presence of HTML entities
+    - PUA range chars
+    """
+    if not s:
+        return False
+    if GLYPH_RUN_RE.search(s):           # raw glyph<...>
+        return True
+    if RE_GLYPH_ESCAPED.search(s):       # escaped glyph&lt;...&gt;
+        return True
+    if RE_PUA.search(s):                 # Private Use Area
+        return True
+    # Many entities (e.g., &lt; &gt; &amp;) – treat as polluted
+    if len(RE_HTML_ENTITY.findall(s)) >= 3:
+        return True
+    return False
 
 # --- Language-agnostic artefact stripping -----------------------------------
 
@@ -218,7 +242,7 @@ def clean_text(
     collapse_ws: bool = True,
     strip_toc_lines: bool = True,
     preserve_markdown_tables: bool = True,
-    normalize_extracted: bool = False,
+    normalize_extracted: bool | str = "auto",
     caesar_mode: str = "off",
 ) -> str:
     """
@@ -226,16 +250,24 @@ def clean_text(
       - Optional extraction normalization (strip artefacts; optional Caesar)
       - Unicode normalization and translation mapping
       - Remove residual PUA and control chars
-      - Normalize list heads and drop ToC lines
+      - normalize_extracted:
+        - False: never run extraction normalization
+        - True : always run extraction normalization
+        - "auto" (default): run only when extractor pollution is detected
       - Whitespace collapsing with Markdown-table preservation
 
-    NOTE: Set `normalize_extracted=True` to remove extractor junk like `glyph<...>` early.
     """
     if not s:
         return s
 
     # 0) Optional pre-normalization for extracted text (multilingual-safe)
-    if normalize_extracted:
+    do_norm = False
+    if normalize_extracted is True:
+        do_norm = True
+    elif normalize_extracted == "auto":
+        do_norm = _looks_extraction_polluted(s)
+
+    if do_norm:
         s = normalize_extracted_text(s, caesar_mode=caesar_mode)
 
     # 1) Basic replacements + Unicode normalization
