@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Vous", email = "you@example.com" }]
 requires-python = ">=3.8"
-dependencies = ["wordfreq (>=3.1.1,<4.0.0)"]
+dependencies = ["wordfreq (>=3.1.1,<4.0.0)", "pymupdf (>=1.26.4,<2.0.0)"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
